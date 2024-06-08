@@ -9,14 +9,6 @@ type MemoryStorage struct {
 	tasks map[string]TaskInfo
 }
 
-type TaskInfo struct {
-	name      string
-	status    TaskStatus
-	dependens []string
-}
-
-type TaskStatus string
-
 type Database interface {
 	GetUserId(string) string
 	GetUserTasks(string) []string
