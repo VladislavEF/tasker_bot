@@ -2,57 +2,87 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
 type MemoryStorage struct {
 	// UserName on UserId
-	userIds map[string]string
+	userIds map[string]int64
 	// UserId on TaskIds
-	taskList map[string][]string
+	taskList map[int64][]string
 	// TaskId on TaskInfo
 	tasks map[string]TaskInfo
+	// UserId on current Line
+	lines map[int64]Line
+	path  string
 }
 
 type Database interface {
-	GetUserId(string) string
-	GetUserTasks(string) []string
-	GetTaskInfo(string) TaskInfo
+	GetUserId(userName string) int64
+	GetUserTasks(userId int64) []string
+	GetTaskInfo(taskId string) TaskInfo
+	GetLine(userId int64) *Line
 
-	AddUser(string)
-	AddUserTask(string, string)
-	AddNewTask(TaskInfo)
+	AddUser(userName string, userId int64)
+	AddUserTask(userId int64, taskId string)
+	AddNewTask(task TaskInfo)
+
+	IsOpenLine(userId int64) bool
+	ChangeLine(userId int64, line Line)
 
 	Save() error
 }
 
-func GetDatabase() *Database {
-	return new(Database)
-}
+// func GetDatabase() Database {
+// 	return Database{}
+// }
 
-func (this *MemoryStorage) GetUserId(id string) string {
-	return ""
+func (this *MemoryStorage) GetUserId(id string) int64 {
+	return 0
 }
-func (this *MemoryStorage) GetUserTasks(id string) []string {
+func (this *MemoryStorage) GetUserTasks(userId int64) []string {
 	return []string{""}
 }
-func (this *MemoryStorage) GetTaskInfo(id string) TaskInfo {
+func (this *MemoryStorage) GetTaskInfo(taskId string) TaskInfo {
 	return TaskInfo{}
 }
-
-func (this *MemoryStorage) AddUser(name string) {
-	if this.userIds == nil {
-		this.userIds = make(map[string]string)
+func (this *MemoryStorage) GetLine(userId int64) *Line {
+	if _, ok := this.lines[userId]; ok {
+		line := this.lines[userId]
+		return &line
+	} else {
+		return nil
 	}
 }
-func (this *MemoryStorage) AddUserTask(userId, taskId string) {
+
+func (this *MemoryStorage) AddUser(userName string, userId int64) {
+	if this.userIds == nil {
+		this.userIds = make(map[string]int64)
+	}
+}
+func (this *MemoryStorage) AddUserTask(userId int64, taskId string) {
 	if this.taskList == nil {
-		this.taskList = make(map[string][]string)
+		this.taskList = make(map[int64][]string)
 	}
 }
 func (this *MemoryStorage) AddNewTask(task TaskInfo) {
 	if this.tasks == nil {
 		this.tasks = make(map[string]TaskInfo)
+	}
+}
+func (this *MemoryStorage) IsOpenLine(userId int64) bool {
+	line, ok := this.lines[userId]
+	return ok && line.command != ""
+}
+func (this *MemoryStorage) ChangeLine(userId int64, line Line) {
+	if this.lines == nil {
+		this.lines = make(map[int64]Line)
+	}
+	if _, ok := this.lines[userId]; !ok {
+		this.lines[userId] = line
+	} else {
+		delete(this.lines, userId)
 	}
 }
 
@@ -61,11 +91,11 @@ func (this *MemoryStorage) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile("database.json", data, 0644)
+	fmt.Println(this)
+	return os.WriteFile(this.path, data, 0644)
 }
 
-func GetLocalDatabase() (Database, error) {
-	path := "database.json"
+func GetLocalDatabase(path string) (Database, error) {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err
@@ -76,6 +106,11 @@ func GetLocalDatabase() (Database, error) {
 		return nil, err
 	}
 	db := &MemoryStorage{}
-	err = json.Unmarshal(rawFile, db)
+	if len(rawFile) == 0 {
+		db.path = path
+	} else {
+		err = json.Unmarshal(rawFile, db)
+	}
+
 	return Database(db), err
 }

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 )
 
 type TaskInfo struct {
@@ -29,10 +28,10 @@ const (
 
 func MakeId(name string) string {
 	md5Hash := sha1.Sum([]byte(name))
-	result, err := uuid.FromBytes(md5Hash[:])
-	if err != nil {
-		log.WithError(err).Fatal("fail to create task")
-	}
+	result, _ := uuid.FromBytes(md5Hash[:])
+	// if err != nil {
+	// 	log.WithError(err).Fatal("Fail to create task")
+	// }
 	return result.String()
 }
 

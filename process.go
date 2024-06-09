@@ -19,6 +19,11 @@ type AnswerInfo struct {
 	userId int64
 }
 
+type Line struct {
+	command  string
+	argument string
+}
+
 var commands = []string{"/start", "/tasks", "/userTasks", "/newTask", "/stats"}
 
 func ListenMessage(update tg.Update) (info *MessageInfo, err error) {
@@ -38,15 +43,21 @@ func ListenMessage(update tg.Update) (info *MessageInfo, err error) {
 	return info, nil
 }
 
-func GetAnswerOnMessage(msg *MessageInfo) *AnswerInfo {
+func GetAnswerOnMessage(msg *MessageInfo, db Database) *AnswerInfo {
 	answer := &AnswerInfo{
 		userId: msg.userId,
+	}
+
+	if userId := db.GetUserId(msg.userName); userId == 0 {
+		db.AddUser(msg.userName, msg.userId)
 	}
 
 	if errMessage := msg.Validate(); errMessage != "" {
 		answer.text = errMessage
 		return answer
 	}
+
+	msg.ProcessComand(answer, db)
 
 	// TODO:
 	// 1) Проверка пришла команда или нет
@@ -83,6 +94,50 @@ func (this *MessageInfo) Validate() (errMessage string) {
 
 func (this *MessageInfo) IsCommand() bool {
 	return strings.HasPrefix(this.text, "/")
+}
+
+func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db Database) {
+	user := this.userId
+	command := this.text
+	line := db.GetLine(user)
+	if db.IsOpenLine(user) {
+		command = line.command
+	}
+
+	switch command {
+	case "/start":
+		answer.text = "Привет.\nЯ бот для заведения и хранения твоих задач. Приступим?"
+	case "/tasks":
+		answer.text = "Раздел в разработке"
+	case "/userTasks":
+		taskIds := db.GetUserTasks(user)
+		tasks := ""
+		for _, id := range taskIds {
+			task := db.GetTaskInfo(id)
+			tasks += task.name + "\n"
+		}
+		answer.text = tasks
+	case "/newTask":
+		if line == nil {
+			line = &Line{
+				command:  command,
+				argument: "",
+			}
+			answer.text = "Что нужно сделать?"
+		} else {
+			task := NewTask(line.argument)
+			db.AddNewTask(*task)
+			db.AddUserTask(user, task.id)
+			answer.text = "Задача добавлена"
+		}
+		db.ChangeLine(user, *line)
+	case "/stats":
+		answer.text = "Раздел в разработке"
+	default:
+		answer.text = "Неизвестная команда"
+	}
+
+	return
 }
 
 func SendAnswer(answer *AnswerInfo, bot *tg.BotAPI) error {
