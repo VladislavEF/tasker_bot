@@ -20,11 +20,11 @@ type AnswerInfo struct {
 }
 
 type Line struct {
-	command  string
-	argument string
+	Command  string
+	Argument string
 }
 
-var commands = []string{"/start", "/tasks", "/userTasks", "/newTask", "/stats"}
+var commands = []string{"/start", "/tasks", "/myTasks", "/newTask", "/stats"}
 
 func ListenMessage(update tg.Update) (info *MessageInfo, err error) {
 	if update.Message == nil {
@@ -39,11 +39,10 @@ func ListenMessage(update tg.Update) (info *MessageInfo, err error) {
 		userName:     msg.From.UserName,
 		userFullName: msg.From.FirstName + " " + msg.From.LastName,
 	}
-
 	return info, nil
 }
 
-func GetAnswerOnMessage(msg *MessageInfo, db Database) *AnswerInfo {
+func GetAnswerOnMessage(msg *MessageInfo, db IDatabase) *AnswerInfo {
 	answer := &AnswerInfo{
 		userId: msg.userId,
 	}
@@ -96,39 +95,44 @@ func (this *MessageInfo) IsCommand() bool {
 	return strings.HasPrefix(this.text, "/")
 }
 
-func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db Database) {
+func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db IDatabase) {
 	user := this.userId
 	command := this.text
 	line := db.GetLine(user)
-	if db.IsOpenLine(user) {
-		command = line.command
+	if db.IsOpenLine(user) && !this.IsCommand(){
+		command = line.Command
+		line.Argument = this.text
 	}
 
 	switch command {
 	case "/start":
 		answer.text = "Привет.\nЯ бот для заведения и хранения твоих задач. Приступим?"
 	case "/tasks":
+		// answer.text = ToString(db.GetUserTasks(user))
 		answer.text = "Раздел в разработке"
-	case "/userTasks":
-		taskIds := db.GetUserTasks(user)
-		tasks := ""
-		for _, id := range taskIds {
-			task := db.GetTaskInfo(id)
-			tasks += task.name + "\n"
+	case "/myTasks":
+		tasks := db.GetUserTasks(user)
+		if len(tasks) == 0 {
+			answer.text = "Нет текущих задач"
+		} else {
+			answer.text = ToString(tasks)
 		}
-		answer.text = tasks
 	case "/newTask":
 		if line == nil {
 			line = &Line{
-				command:  command,
-				argument: "",
+				Command:  command,
+				Argument: "",
 			}
 			answer.text = "Что нужно сделать?"
 		} else {
-			task := NewTask(line.argument)
-			db.AddNewTask(*task)
-			db.AddUserTask(user, task.id)
-			answer.text = "Задача добавлена"
+			task := NewTask(line.Argument)
+			if !db.IsTask(task.Id){
+				db.AddNewTask(*task)
+				db.AddUserTask(user, task.Id)
+				answer.text = "Задача добавлена"
+			} else {
+				answer.text = "Задача уже заведена"
+			}
 		}
 		db.ChangeLine(user, *line)
 	case "/stats":

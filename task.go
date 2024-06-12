@@ -2,18 +2,19 @@ package main
 
 import (
 	"crypto/sha1"
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type TaskInfo struct {
-	name         string
-	id           string
-	status       TaskStatus
-	dependens    []string
-	creationDate time.Time
-	finishDate   time.Time
+	Name         string
+	Id           string
+	Status       TaskStatus
+	Dependens    []string
+	CreationDate time.Time
+	FinishDate   time.Time
 	// daysInWork int
 
 }
@@ -27,44 +28,47 @@ const (
 )
 
 func MakeId(name string) string {
-	md5Hash := sha1.Sum([]byte(name))
-	result, _ := uuid.FromBytes(md5Hash[:])
+	fmt.Println(name)
+	// md5Hash := sha1.Sum([]byte(name))
+	// result, err := uuid.FromBytes(md5Hash[:])
 	// if err != nil {
 	// 	log.WithError(err).Fatal("Fail to create task")
 	// }
-	return result.String()
+	h := sha1.New()
+	h.Write([]byte(name))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func NewTask(name string) *TaskInfo {
 	task := TaskInfo{
-		name:         name,
-		id:           MakeId(name),
-		status:       Backlog,
-		dependens:    make([]string, 0),
-		creationDate: time.Now(),
+		Name:         name,
+		Id:           MakeId(strings.ToUpper(name)),
+		Status:       Backlog,
+		Dependens:    make([]string, 0),
+		CreationDate: time.Now(),
 	}
 
 	return &task
 }
 
 func (this *TaskInfo) Done() {
-	this.status = Done
-	this.finishDate = time.Now()
+	this.Status = Done
+	this.FinishDate = time.Now()
 }
 func (this *TaskInfo) Cancelled() {
-	this.status = Cancelled
+	this.Status = Cancelled
 }
 func (this *TaskInfo) Backlog() {
-	this.status = Backlog
-	this.finishDate = time.Time{}
+	this.Status = Backlog
+	this.FinishDate = time.Time{}
 }
 func (this *TaskInfo) BoundWith(id string) {
-	this.dependens = append(this.dependens, id)
+	this.Dependens = append(this.Dependens, id)
 }
 
 func (this *TaskInfo) GetId() (id string) {
-	return this.id
+	return this.Id
 }
 func (this *TaskInfo) GetName() (id string) {
-	return this.name
+	return this.Name
 }

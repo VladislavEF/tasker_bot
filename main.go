@@ -36,14 +36,18 @@ func main() {
 	config.Timeout = 60
 
 	if opts.DatabasePath == "" {
-		log.Fatal("Only local database is implemented")
-		os.Exit(1)
+		opts.DatabasePath = os.Getenv("TASKER_LOCAL_DATABASE")
+		if opts.DatabasePath == "" {
+			log.Fatal("Only local database is implemented")
+			os.Exit(1)
+		}
 	}
 	db, err := GetLocalDatabase(opts.DatabasePath)
 	if err != nil {
 		log.WithError(err).Fatal("Can't connect to local database")
 		os.Exit(1)
 	}
+	// db.GetDbState()
 
 	for update := range bot.GetUpdatesChan(config) {
 		msg, err := ListenMessage(update)
@@ -57,7 +61,7 @@ func main() {
 			log.WithError(err).Error("Failed to send answer")
 			continue
 		}
-		if err = db.Save(); err != nil{
+		if err = db.Save(); err != nil {
 			log.WithError(err).Fatal("Can't write to local database")
 			os.Exit(1)
 		}

@@ -8,30 +8,33 @@ import (
 
 type MemoryStorage struct {
 	// UserName on UserId
-	userIds map[string]int64
+	UserIds map[string]int64
 	// UserId on TaskIds
-	taskList map[int64][]string
+	TaskList map[int64][]string
 	// TaskId on TaskInfo
-	tasks map[string]TaskInfo
+	Tasks map[string]TaskInfo
 	// UserId on current Line
-	lines map[int64]Line
+	Lines map[int64]Line
 	path  string
 }
 
-type Database interface {
+type IDatabase interface {
 	GetUserId(userName string) int64
 	GetUserTasks(userId int64) []string
 	GetTaskInfo(taskId string) TaskInfo
 	GetLine(userId int64) *Line
 
+	IsTask(taskId string) bool
+	IsOpenLine(userId int64) bool
+
 	AddUser(userName string, userId int64)
 	AddUserTask(userId int64, taskId string)
 	AddNewTask(task TaskInfo)
 
-	IsOpenLine(userId int64) bool
 	ChangeLine(userId int64, line Line)
 
 	Save() error
+	GetDbState()
 }
 
 // func GetDatabase() Database {
@@ -42,75 +45,98 @@ func (this *MemoryStorage) GetUserId(id string) int64 {
 	return 0
 }
 func (this *MemoryStorage) GetUserTasks(userId int64) []string {
-	return []string{""}
+	taskIds := this.TaskList[userId]
+	tasks := []string{}
+	for _, taskId := range taskIds {
+		task := this.Tasks[taskId]
+		tasks = append(tasks, task.Name)
+	}
+	return tasks
 }
 func (this *MemoryStorage) GetTaskInfo(taskId string) TaskInfo {
 	return TaskInfo{}
 }
 func (this *MemoryStorage) GetLine(userId int64) *Line {
-	if _, ok := this.lines[userId]; ok {
-		line := this.lines[userId]
+	if _, ok := this.Lines[userId]; ok {
+		line := this.Lines[userId]
 		return &line
 	} else {
 		return nil
 	}
 }
 
-func (this *MemoryStorage) AddUser(userName string, userId int64) {
-	if this.userIds == nil {
-		this.userIds = make(map[string]int64)
-	}
-}
-func (this *MemoryStorage) AddUserTask(userId int64, taskId string) {
-	if this.taskList == nil {
-		this.taskList = make(map[int64][]string)
-	}
-}
-func (this *MemoryStorage) AddNewTask(task TaskInfo) {
-	if this.tasks == nil {
-		this.tasks = make(map[string]TaskInfo)
-	}
+func (this *MemoryStorage) IsTask(taskId string) bool{
+	_,ok := this.Tasks[taskId]
+	return ok
 }
 func (this *MemoryStorage) IsOpenLine(userId int64) bool {
-	line, ok := this.lines[userId]
-	return ok && line.command != ""
+	line, ok := this.Lines[userId]
+	return ok && line.Command != ""
 }
-func (this *MemoryStorage) ChangeLine(userId int64, line Line) {
-	if this.lines == nil {
-		this.lines = make(map[int64]Line)
+
+func (this *MemoryStorage) AddUser(userName string, userId int64) {
+	if this.UserIds == nil {
+		this.UserIds = make(map[string]int64)
 	}
-	if _, ok := this.lines[userId]; !ok {
-		this.lines[userId] = line
+	this.UserIds[userName] = userId
+}
+func (this *MemoryStorage) AddUserTask(userId int64, taskId string) {
+	if this.TaskList == nil {
+		this.TaskList = make(map[int64][]string)
+		this.TaskList[userId] = []string{}
+	}
+	tasks := append(this.TaskList[userId], taskId)
+	this.TaskList[userId] = tasks
+}
+func (this *MemoryStorage) AddNewTask(task TaskInfo) {
+	if this.Tasks == nil {
+		this.Tasks = make(map[string]TaskInfo)
+	}
+	this.Tasks[task.Id] = task
+}
+
+func (this *MemoryStorage) ChangeLine(userId int64, line Line) {
+	if this.Lines == nil {
+		this.Lines = make(map[int64]Line)
+	}
+	if _, ok := this.Lines[userId]; !ok {
+		this.Lines[userId] = line
 	} else {
-		delete(this.lines, userId)
+		delete(this.Lines, userId)
 	}
 }
 
 func (this *MemoryStorage) Save() error {
-	data, err := json.MarshalIndent(this, "", "	")
+	data, err := json.MarshalIndent(&this, "", "	")
 	if err != nil {
 		return err
 	}
-	fmt.Println(this)
 	return os.WriteFile(this.path, data, 0644)
 }
 
-func GetLocalDatabase(path string) (Database, error) {
+func (this *MemoryStorage) GetDbState() {
+	fmt.Println("DB state:")
+	fmt.Println(this)
+}
+
+func GetLocalDatabase(path string) (IDatabase, error) {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err
 	}
-	rawFile := []byte{}
-	_, err = file.Read(rawFile)
+	file.Close()
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+
 	db := &MemoryStorage{}
-	if len(rawFile) == 0 {
+	if len(bytes) == 0 {
 		db.path = path
 	} else {
-		err = json.Unmarshal(rawFile, db)
+		err = json.Unmarshal(bytes, db)
+		db.path = path
 	}
 
-	return Database(db), err
+	return IDatabase(db), err
 }
