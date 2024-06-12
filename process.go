@@ -15,7 +15,7 @@ type MessageInfo struct {
 }
 
 type AnswerInfo struct {
-	text   string
+	text   []string
 	userId int64
 }
 
@@ -52,7 +52,7 @@ func GetAnswerOnMessage(msg *MessageInfo, db IDatabase) *AnswerInfo {
 	}
 
 	if errMessage := msg.Validate(); errMessage != "" {
-		answer.text = errMessage
+		answer.text = []string{errMessage}
 		return answer
 	}
 
@@ -98,24 +98,28 @@ func (this *MessageInfo) IsCommand() bool {
 func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db IDatabase) {
 	user := this.userId
 	command := this.text
+
 	line := db.GetLine(user)
-	if db.IsOpenLine(user) && !this.IsCommand(){
+	if this.IsCommand(){
+		line = nil
+	}
+	if line != nil && db.IsOpenLine(user) {
 		command = line.Command
 		line.Argument = this.text
 	}
 
 	switch command {
 	case "/start":
-		answer.text = "Привет.\nЯ бот для заведения и хранения твоих задач. Приступим?"
+		answer.SetAnswer("Привет.\nЯ бот для заведения и хранения твоих задач. Приступим?")
 	case "/tasks":
 		// answer.text = ToString(db.GetUserTasks(user))
-		answer.text = "Раздел в разработке"
+		answer.SetAnswer("Раздел в разработке")
 	case "/myTasks":
 		tasks := db.GetUserTasks(user)
 		if len(tasks) == 0 {
-			answer.text = "Нет текущих задач"
+			answer.SetAnswer("Нет текущих задач")
 		} else {
-			answer.text = ToString(tasks)
+			answer.SetAnswers(tasks)
 		}
 	case "/newTask":
 		if line == nil {
@@ -123,28 +127,39 @@ func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db IDatabase) {
 				Command:  command,
 				Argument: "",
 			}
-			answer.text = "Что нужно сделать?"
+			answer.SetAnswer("Что нужно сделать?")
 		} else {
 			task := NewTask(line.Argument)
 			if !db.IsTask(task.Id){
 				db.AddNewTask(*task)
 				db.AddUserTask(user, task.Id)
-				answer.text = "Задача добавлена"
+				answer.SetAnswer("Задача добавлена")
 			} else {
-				answer.text = "Задача уже заведена"
+				answer.SetAnswer("Задача уже заведена")
 			}
 		}
 		db.ChangeLine(user, *line)
 	case "/stats":
-		answer.text = "Раздел в разработке"
+		answer.SetAnswer("Раздел в разработке")
 	default:
-		answer.text = "Неизвестная команда"
+		answer.SetAnswer("Неизвестная команда")
 	}
-
-	return
 }
 
 func SendAnswer(answer *AnswerInfo, bot *tg.BotAPI) error {
-	_, err := bot.Send(tg.NewMessage(answer.userId, answer.text))
-	return err
+	for _,text := range answer.text{
+		_, err := bot.Send(tg.NewMessage(answer.userId, text))
+		if err != nil{
+			return err
+		}
+	}
+	return nil
+}
+
+func (this *AnswerInfo) SetAnswer(text string){
+	this.text = append(this.text, text)
+}
+
+func (this *AnswerInfo) SetAnswers(text []string){
+	this.text = text
 }
