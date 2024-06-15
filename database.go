@@ -8,7 +8,7 @@ import (
 
 type MemoryStorage struct {
 	// UserName on UserId
-	UserIds map[string]int64
+	UserIds map[int64]string
 	// UserId on TaskIds
 	TaskList map[int64][]string
 	// TaskId on TaskInfo
@@ -19,6 +19,7 @@ type MemoryStorage struct {
 }
 
 type IDatabase interface {
+	GetAllUsers() []int64
 	GetUserId(userName string) int64
 	GetUserTasks(userId int64) []string
 	GetTaskInfo(taskId string) TaskInfo
@@ -41,12 +42,19 @@ type IDatabase interface {
 // 	return Database{}
 // }
 
+func (this *MemoryStorage) GetAllUsers() []int64 {
+	users := make([]int64, len(this.UserIds))
+	for id, _ := range this.UserIds {
+		users = append(users, id)
+	}
+	return users
+}
 func (this *MemoryStorage) GetUserId(id string) int64 {
 	return 0
 }
 func (this *MemoryStorage) GetUserTasks(userId int64) []string {
 	taskIds := this.TaskList[userId]
-	tasks := []string{}
+	tasks := make([]string, 0)
 	for _, taskId := range taskIds {
 		task := this.Tasks[taskId]
 		tasks = append(tasks, task.Name)
@@ -65,8 +73,8 @@ func (this *MemoryStorage) GetLine(userId int64) *Line {
 	}
 }
 
-func (this *MemoryStorage) IsTask(taskId string) bool{
-	_,ok := this.Tasks[taskId]
+func (this *MemoryStorage) IsTask(taskId string) bool {
+	_, ok := this.Tasks[taskId]
 	return ok
 }
 func (this *MemoryStorage) IsOpenLine(userId int64) bool {
@@ -76,9 +84,9 @@ func (this *MemoryStorage) IsOpenLine(userId int64) bool {
 
 func (this *MemoryStorage) AddUser(userName string, userId int64) {
 	if this.UserIds == nil {
-		this.UserIds = make(map[string]int64)
+		this.UserIds = make(map[int64]string)
 	}
-	this.UserIds[userName] = userId
+	this.UserIds[userId] = userName
 }
 func (this *MemoryStorage) AddUserTask(userId int64, taskId string) {
 	if this.TaskList == nil {

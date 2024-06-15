@@ -1,22 +1,29 @@
 package main
 
 import (
+	"errors"
 	"strings"
 
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgApi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type MessageInfo struct {
-	update       tg.Update
 	text         string
 	userId       int64
 	userName     string
 	userFullName string
 }
 
+type CallbackInfo struct {
+	msg  *MessageInfo
+	id   string
+	data string
+}
+
 type AnswerInfo struct {
-	text   []string
-	userId int64
+	text     []string
+	userId   int64
+	keyboard *tgApi.InlineKeyboardMarkup
 }
 
 type Line struct {
@@ -26,14 +33,9 @@ type Line struct {
 
 var commands = []string{"/start", "/tasks", "/myTasks", "/newTask", "/stats"}
 
-func ListenMessage(update tg.Update) (info *MessageInfo, err error) {
-	if update.Message == nil {
-		return
-	}
-
+func ListenMessage(update tgApi.Update) (info *MessageInfo, err error) {
 	msg := update.Message
 	info = &MessageInfo{
-		update:       update,
 		text:         msg.Text,
 		userId:       msg.From.ID,
 		userName:     msg.From.UserName,
@@ -42,10 +44,33 @@ func ListenMessage(update tg.Update) (info *MessageInfo, err error) {
 	return info, nil
 }
 
-func GetAnswerOnMessage(msg *MessageInfo, db IDatabase) *AnswerInfo {
-	answer := &AnswerInfo{
-		userId: msg.userId,
+func ListenCallback(update tgApi.Update) (callback *CallbackInfo, err error) {
+	callbackInfo := update.CallbackQuery
+	msg := callbackInfo.Message
+	msgInfo := &MessageInfo{
+		text:         callbackInfo.Data,
+		userId:       callbackInfo.From.ID,
+		userName:     msg.From.UserName,
+		userFullName: msg.From.FirstName + " " + msg.From.LastName,
 	}
+
+	callback = &CallbackInfo{
+		msg:  msgInfo,
+		id:   callbackInfo.ID,
+		data: callbackInfo.Data,
+	}
+
+	return callback, nil
+}
+
+func NewAnswer() *AnswerInfo {
+	answer := &AnswerInfo{}
+	return answer
+}
+
+func GetAnswerOnMessage(msg *MessageInfo, db IDatabase) *AnswerInfo {
+	answer := NewAnswer()
+	answer.userId = msg.userId
 
 	if userId := db.GetUserId(msg.userName); userId == 0 {
 		db.AddUser(msg.userName, msg.userId)
@@ -100,7 +125,7 @@ func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db IDatabase) {
 	command := this.text
 
 	line := db.GetLine(user)
-	if this.IsCommand(){
+	if this.IsCommand() {
 		line = nil
 	}
 	if line != nil && db.IsOpenLine(user) {
@@ -110,35 +135,13 @@ func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db IDatabase) {
 
 	switch command {
 	case "/start":
-		answer.SetAnswer("Привет.\nЯ бот для заведения и хранения твоих задач. Приступим?")
+		answer.Start()
 	case "/tasks":
-		// answer.text = ToString(db.GetUserTasks(user))
 		answer.SetAnswer("Раздел в разработке")
 	case "/myTasks":
-		tasks := db.GetUserTasks(user)
-		if len(tasks) == 0 {
-			answer.SetAnswer("Нет текущих задач")
-		} else {
-			answer.SetAnswers(tasks)
-		}
+		answer.MyTasks(db)
 	case "/newTask":
-		if line == nil {
-			line = &Line{
-				Command:  command,
-				Argument: "",
-			}
-			answer.SetAnswer("Что нужно сделать?")
-		} else {
-			task := NewTask(line.Argument)
-			if !db.IsTask(task.Id){
-				db.AddNewTask(*task)
-				db.AddUserTask(user, task.Id)
-				answer.SetAnswer("Задача добавлена")
-			} else {
-				answer.SetAnswer("Задача уже заведена")
-			}
-		}
-		db.ChangeLine(user, *line)
+		answer.NewTask(line, db)
 	case "/stats":
 		answer.SetAnswer("Раздел в разработке")
 	default:
@@ -146,20 +149,25 @@ func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db IDatabase) {
 	}
 }
 
-func SendAnswer(answer *AnswerInfo, bot *tg.BotAPI) error {
-	for _,text := range answer.text{
-		_, err := bot.Send(tg.NewMessage(answer.userId, text))
-		if err != nil{
+func SendAnswer(answer *AnswerInfo, bot *tgApi.BotAPI) error {
+	if answer == nil {
+		return errors.New("Empty answer")
+	}
+	for _, text := range answer.text {
+		msg := tgApi.NewMessage(answer.userId, text)
+		msg.ReplyMarkup = answer.keyboard
+		_, err := bot.Send(msg)
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (this *AnswerInfo) SetAnswer(text string){
+func (this *AnswerInfo) SetAnswer(text string) {
 	this.text = append(this.text, text)
 }
 
-func (this *AnswerInfo) SetAnswers(text []string){
+func (this *AnswerInfo) SetAnswers(text []string) {
 	this.text = text
 }
