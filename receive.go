@@ -70,7 +70,7 @@ func GetAnswerOnMessage(msg *MessageType, db IDatabase) *Answer {
 	answer := NewUserAnswer(msg.userId)
 
 	if userId := db.GetUserId(msg.userName); userId == 0 {
-		if msg.userName != selfName{
+		if msg.userName != selfName {
 			db.AddUser(msg.userName, msg.userId)
 		}
 	}
@@ -117,7 +117,7 @@ func (this *MessageType) Validate() (errMessage string) {
 func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 	user := this.userId
 
-	if this.IsMenu(){
+	if this.IsMenu() {
 		answer.SetAnswer("Что нужно?")
 		answer.SetButton(GetStartButtons())
 		return
@@ -132,7 +132,7 @@ func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 		} else {
 			function = line.Command
 			line.Text = this.text
-			if argument != ""{
+			if argument != "" {
 				userId, _ := strconv.Atoi(argument)
 				line.Executor = int64(userId)
 			} else {
