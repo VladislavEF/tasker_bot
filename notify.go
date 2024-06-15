@@ -15,9 +15,10 @@ func Notification(db IDatabase, bot *tgApi.BotAPI) {
 	}
 }
 
-func Notifyer(db IDatabase, bot *tgApi.BotAPI) {
+func Notifyer(db IDatabase, bot *tgApi.BotAPI) (err error){
 	s := gocron.NewScheduler()
-	s.Every(1).Day().At("11:00:00").Do(Notification, db, bot)
-	s.Every(1).Day().At("19:00:00").Do(Notification, db, bot)
+	err = s.Every(1).Day().At("11:00:00").Do(Notification, db, bot)
+	err = s.Every(1).Day().At("19:00:00").Do(Notification, db, bot)
 	<-s.Start()
+	return err
 }

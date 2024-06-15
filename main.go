@@ -56,7 +56,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	Notifyer(db,bot)
+	go Notifyer(db,bot)
 
 	for update := range bot.GetUpdatesChan(config) {
 		var msg *MessageType
