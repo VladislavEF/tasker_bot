@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 
 	tgApi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -20,11 +21,12 @@ type CallbackType struct {
 }
 
 type LineType struct {
-	Command string
-	Text    string
+	Command  string
+	Text     string
+	Executor int64
 }
 
-var functions = []string{"/start", "/tasks", "/myTasks", "/newTask", "/stats", "/finish", "/delete"}
+var functions = []string{"/start", "/tasks", "/my_tasks", "/new_task", "/stats", "/finish", "/delete", "/users"}
 
 func ListenMessage(update tgApi.Update) (info *MessageType, err error) {
 	msg := update.Message
@@ -60,11 +62,17 @@ func (this *MessageType) IsCommand() bool {
 	return strings.HasPrefix(this.text, "/")
 }
 
+func (this *MessageType) IsMenu() bool {
+	return this.text == "Меню" || this.text == "Команды" || this.text == "Menu" || this.text == "Commands" || this.text == "Старт"
+}
+
 func GetAnswerOnMessage(msg *MessageType, db IDatabase) *Answer {
 	answer := NewUserAnswer(msg.userId)
 
 	if userId := db.GetUserId(msg.userName); userId == 0 {
-		db.AddUser(msg.userName, msg.userId)
+		if msg.userName != selfName{
+			db.AddUser(msg.userName, msg.userId)
+		}
 	}
 
 	if errMessage := msg.Validate(); errMessage != "" {
@@ -73,15 +81,6 @@ func GetAnswerOnMessage(msg *MessageType, db IDatabase) *Answer {
 	}
 
 	msg.ProcessComand(answer, db)
-
-	// TODO:
-	// 1) Проверка пришла команда или нет
-	// 2) обработка команды, создание line
-	// 3) создание списка задач
-	// 4) выдача списка задач
-	// 5) добавление задачи
-	// 6) перевод задачи в статус
-	// 7) уведомления о задачах
 
 	return answer
 }
@@ -117,6 +116,13 @@ func (this *MessageType) Validate() (errMessage string) {
 
 func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 	user := this.userId
+
+	if this.IsMenu(){
+		answer.SetAnswer("Что нужно?")
+		answer.SetButton(GetStartButtons())
+		return
+	}
+
 	function, argument := GetFunction(this.text), GetArgument(this.text)
 
 	line := db.GetLine(user)
@@ -126,6 +132,12 @@ func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 		} else {
 			function = line.Command
 			line.Text = this.text
+			if argument != ""{
+				userId, _ := strconv.Atoi(argument)
+				line.Executor = int64(userId)
+			} else {
+				line.Executor = user
+			}
 		}
 	}
 
@@ -134,9 +146,9 @@ func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 		answer.Start()
 	case "/tasks":
 		answer.SetAnswer("Раздел в разработке")
-	case "/myTasks":
+	case "/my_tasks":
 		answer.MyTasks(db)
-	case "/newTask":
+	case "/new_task":
 		answer.NewTask(line, db)
 	case "/stats":
 		answer.SetAnswer("Раздел в разработке")
@@ -144,8 +156,11 @@ func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 		answer.FinishTask(argument, db)
 	case "/delete":
 		answer.DeleteTask(argument, db)
+	case "/users":
+		answer.UsersList(db)
 	default:
 		answer.SetAnswer("Неизвестная команда")
+		answer.SetButton(GetStartButtons())
 	}
 }
 

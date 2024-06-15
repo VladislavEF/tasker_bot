@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"time"
 )
@@ -16,7 +15,6 @@ type TaskInfo struct {
 	CreationDate time.Time
 	FinishDate   time.Time
 	// daysInWork int
-
 }
 
 type TaskStatus int
@@ -28,7 +26,6 @@ const (
 )
 
 func MakeId(name string) string {
-	fmt.Println(name)
 	h := sha1.New()
 	h.Write([]byte(name))
 	return hex.EncodeToString(h.Sum(nil))
@@ -50,14 +47,17 @@ func (this *TaskInfo) Done() {
 	this.Status = Done
 	this.FinishDate = time.Now()
 }
+
 func (this *TaskInfo) Cancelled() {
 	this.Status = Cancelled
 	this.FinishDate = time.Now()
 }
+
 func (this *TaskInfo) Backlog() {
 	this.Status = Backlog
 	this.FinishDate = time.Time{}
 }
+
 func (this *TaskInfo) BoundWith(id string) {
 	this.Dependens = append(this.Dependens, id)
 }
@@ -65,6 +65,7 @@ func (this *TaskInfo) BoundWith(id string) {
 func (this *TaskInfo) GetId() (id string) {
 	return this.Id
 }
+
 func (this *TaskInfo) GetName() (id string) {
 	return this.Name
 }

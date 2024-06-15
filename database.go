@@ -18,7 +18,7 @@ type MemoryStorage struct {
 }
 
 type IDatabase interface {
-	GetAllUsers() []int64
+	GetAllUsers() map[int64]string
 	GetUserId(userName string) int64
 	GetUserTasks(userId int64) []TaskInfo
 	GetTaskInfo(taskId string) TaskInfo
@@ -37,12 +37,8 @@ type IDatabase interface {
 	Save() error
 }
 
-func (this *MemoryStorage) GetAllUsers() []int64 {
-	users := make([]int64, len(this.UserIds))
-	for id, _ := range this.UserIds {
-		users = append(users, id)
-	}
-	return users
+func (this *MemoryStorage) GetAllUsers() map[int64]string {
+	return this.UserIds
 }
 func (this *MemoryStorage) GetUserId(id string) int64 {
 	return 0

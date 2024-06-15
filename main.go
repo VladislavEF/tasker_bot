@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	tgApi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -14,7 +13,7 @@ var opts struct {
 	DatabasePath string `long:"database" description:"Path to local database"`
 }
 
-var selfName = "@tasker_list_bot"
+var selfName = "tasker_list_bot"
 
 func main() {
 	log.Info("Start TG bot")
@@ -64,8 +63,6 @@ func main() {
 			callback, _err := ListenCallback(update)
 			err = _err
 			msg = callback.msg
-			fmt.Println(msg)
-			// fmt.Println(callback.data)
 		} else if update.Message != nil {
 			msg, err = ListenMessage(update)
 		} else {

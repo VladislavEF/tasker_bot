@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 
 	tgApi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -23,6 +22,8 @@ func NewUserAnswer(userId int64) *Answer {
 	return answer
 }
 
+// ************ ANSWERS SECTION ************
+
 func (this *Answer) Start() {
 	this.SetAnswer("Привет.\nЯ бот для заведения и хранения твоих задач. Приступим?")
 	this.SetButton(GetStartButtons())
@@ -31,8 +32,9 @@ func (this *Answer) Start() {
 func (this *Answer) NewTask(line *LineType, db IDatabase) {
 	if line == nil {
 		line = &LineType{
-			Command: "/newTask",
-			Text:    "",
+			Command:  "/new_task",
+			Text:     "",
+			Executor: this.userId,
 		}
 		this.SetAnswer("Что нужно сделать?")
 	} else {
@@ -43,7 +45,7 @@ func (this *Answer) NewTask(line *LineType, db IDatabase) {
 				return
 			}
 			db.AddNewTask(*task)
-			db.AddUserTask(this.userId, task.Id)
+			db.AddUserTask(line.Executor, task.Id)
 			this.SetAnswer("Задача добавлена")
 		} else {
 			this.SetAnswer("Задача уже заведена")
@@ -56,7 +58,6 @@ func (this *Answer) DeleteTask(id string, db IDatabase) {
 	if db.IsTask(id) {
 		task := db.GetTaskInfo(id)
 		task.Cancelled()
-		fmt.Println(task)
 		db.ChangeTask(id, task)
 	}
 	this.SetAnswer("Удалена")
@@ -87,6 +88,13 @@ func (this *Answer) MyTasks(db IDatabase) {
 	}
 }
 
+func (this *Answer) UsersList(db IDatabase) {
+	this.SetAnswer("Кому?")
+	this.SetButton(GetUserButton(this.userId, db.GetAllUsers()))
+}
+
+// ************ BASE SEND FUNCTIONS SECTION ************
+
 func (this *Answer) SetButton(button tgApi.InlineKeyboardMarkup) {
 	this.keyboard = append(this.keyboard, button)
 }
@@ -94,7 +102,6 @@ func (this *Answer) SetButton(button tgApi.InlineKeyboardMarkup) {
 func (this *Answer) SetAnswer(text string) {
 	this.text = append(this.text, text)
 }
-
 func (this *Answer) SetAnswers(text []string) {
 	this.text = text
 }
@@ -105,12 +112,12 @@ func SendStartMsg(bot *tgApi.BotAPI, db IDatabase) error {
 	return SendMessageToUsers(db.GetAllUsers(), baseMsg, bot)
 }
 
-func SendMessageToUsers(users []int64, answer *Answer, bot *tgApi.BotAPI) error {
+func SendMessageToUsers(users map[int64]string, answer *Answer, bot *tgApi.BotAPI) error {
 	if answer == nil {
 		return errors.New("Empty answer")
 	}
-	for _, user := range users {
-		answer.userId = user
+	for userId, _ := range users {
+		answer.userId = userId
 		SendMessage(answer, bot)
 	}
 	return nil
