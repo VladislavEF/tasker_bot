@@ -1,4 +1,4 @@
-module tusker
+module tasker
 
 go 1.21.8
 
