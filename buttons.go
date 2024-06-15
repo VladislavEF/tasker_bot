@@ -14,3 +14,12 @@ func GetStartButtons() *tgApi.InlineKeyboardMarkup {
 		))
 	return &keyboard
 }
+
+func GetTaskButtons() *tgApi.InlineKeyboardMarkup {
+	keyboard := tgApi.NewInlineKeyboardMarkup(
+		tgApi.NewInlineKeyboardRow(
+			tgApi.NewInlineKeyboardButtonData("Завершить", "s"),
+			tgApi.NewInlineKeyboardButtonData("Удалить", "ss"),
+		))
+	return &keyboard
+}

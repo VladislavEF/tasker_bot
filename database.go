@@ -14,7 +14,7 @@ type MemoryStorage struct {
 	// TaskId on TaskInfo
 	Tasks map[string]TaskInfo
 	// UserId on current Line
-	Lines map[int64]Line
+	Lines map[int64]LineType
 	path  string
 }
 
@@ -23,7 +23,7 @@ type IDatabase interface {
 	GetUserId(userName string) int64
 	GetUserTasks(userId int64) []string
 	GetTaskInfo(taskId string) TaskInfo
-	GetLine(userId int64) *Line
+	GetLine(userId int64) *LineType
 
 	IsTask(taskId string) bool
 	IsOpenLine(userId int64) bool
@@ -32,7 +32,7 @@ type IDatabase interface {
 	AddUserTask(userId int64, taskId string)
 	AddNewTask(task TaskInfo)
 
-	ChangeLine(userId int64, line Line)
+	ChangeLine(userId int64, line LineType)
 
 	Save() error
 	GetDbState()
@@ -64,7 +64,7 @@ func (this *MemoryStorage) GetUserTasks(userId int64) []string {
 func (this *MemoryStorage) GetTaskInfo(taskId string) TaskInfo {
 	return TaskInfo{}
 }
-func (this *MemoryStorage) GetLine(userId int64) *Line {
+func (this *MemoryStorage) GetLine(userId int64) *LineType {
 	if _, ok := this.Lines[userId]; ok {
 		line := this.Lines[userId]
 		return &line
@@ -103,9 +103,9 @@ func (this *MemoryStorage) AddNewTask(task TaskInfo) {
 	this.Tasks[task.Id] = task
 }
 
-func (this *MemoryStorage) ChangeLine(userId int64, line Line) {
+func (this *MemoryStorage) ChangeLine(userId int64, line LineType) {
 	if this.Lines == nil {
-		this.Lines = make(map[int64]Line)
+		this.Lines = make(map[int64]LineType)
 	}
 	if _, ok := this.Lines[userId]; !ok {
 		this.Lines[userId] = line

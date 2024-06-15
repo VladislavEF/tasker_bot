@@ -52,13 +52,13 @@ func main() {
 	}
 	// db.GetDbState()
 
-	if err := SendStartMsg(bot,db); err != nil {
+	if err := SendStartMsg(bot, db); err != nil {
 		log.WithError(err).Error("Failed to send start message")
 		os.Exit(1)
 	}
 
 	for update := range bot.GetUpdatesChan(config) {
-		var msg *MessageInfo
+		var msg *MessageType
 		var err error
 		if update.CallbackQuery != nil {
 			callback, _err := ListenCallback(update)
@@ -74,7 +74,7 @@ func main() {
 			continue
 		}
 
-		err = SendAnswer(GetAnswerOnMessage(msg, db), bot)
+		err = SendMessage(GetAnswerOnMessage(msg, db), bot)
 		if err != nil {
 			log.WithError(err).Error("Failed to send answer")
 			continue
@@ -87,21 +87,4 @@ func main() {
 
 	log.Info("All Ok")
 	os.Exit(0)
-}
-
-func SendStartMsg(bot *tgApi.BotAPI, db IDatabase) error {
-	baseMsg := NewAnswer()
-	baseMsg.Start()
-	return SendMessage(db.GetAllUsers(), baseMsg, bot)
-}
-
-func SendMessage(users []int64, answer *AnswerInfo, bot *tgApi.BotAPI) error {
-	if answer == nil {
-		return errors.New("Empty answer")
-	}
-	for _,user := range users{
-		answer.userId = user
-		SendAnswer(answer,bot)
-	}
-	return nil
 }

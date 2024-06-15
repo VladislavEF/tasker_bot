@@ -1,41 +1,34 @@
 package main
 
 import (
-	"errors"
 	"strings"
 
 	tgApi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type MessageInfo struct {
+type MessageType struct {
 	text         string
 	userId       int64
 	userName     string
 	userFullName string
 }
 
-type CallbackInfo struct {
-	msg  *MessageInfo
+type CallbackType struct {
+	msg  *MessageType
 	id   string
 	data string
 }
 
-type AnswerInfo struct {
-	text     []string
-	userId   int64
-	keyboard *tgApi.InlineKeyboardMarkup
-}
-
-type Line struct {
+type LineType struct {
 	Command  string
 	Argument string
 }
 
 var commands = []string{"/start", "/tasks", "/myTasks", "/newTask", "/stats"}
 
-func ListenMessage(update tgApi.Update) (info *MessageInfo, err error) {
+func ListenMessage(update tgApi.Update) (info *MessageType, err error) {
 	msg := update.Message
-	info = &MessageInfo{
+	info = &MessageType{
 		text:         msg.Text,
 		userId:       msg.From.ID,
 		userName:     msg.From.UserName,
@@ -44,17 +37,17 @@ func ListenMessage(update tgApi.Update) (info *MessageInfo, err error) {
 	return info, nil
 }
 
-func ListenCallback(update tgApi.Update) (callback *CallbackInfo, err error) {
+func ListenCallback(update tgApi.Update) (callback *CallbackType, err error) {
 	callbackInfo := update.CallbackQuery
 	msg := callbackInfo.Message
-	msgInfo := &MessageInfo{
+	msgInfo := &MessageType{
 		text:         callbackInfo.Data,
 		userId:       callbackInfo.From.ID,
 		userName:     msg.From.UserName,
 		userFullName: msg.From.FirstName + " " + msg.From.LastName,
 	}
 
-	callback = &CallbackInfo{
+	callback = &CallbackType{
 		msg:  msgInfo,
 		id:   callbackInfo.ID,
 		data: callbackInfo.Data,
@@ -63,14 +56,33 @@ func ListenCallback(update tgApi.Update) (callback *CallbackInfo, err error) {
 	return callback, nil
 }
 
-func NewAnswer() *AnswerInfo {
-	answer := &AnswerInfo{}
-	return answer
+func (this *MessageType) Validate() (errMessage string) {
+	if this.text == "" {
+		return "Получено пустое сообщение"
+	}
+
+	if this.IsCommand() {
+		isNownCommand := false
+		for _, command := range commands {
+			if this.text == command {
+				isNownCommand = true
+				break
+			}
+		}
+		if !isNownCommand {
+			return "Неизвестная команда"
+		}
+	}
+
+	return ""
 }
 
-func GetAnswerOnMessage(msg *MessageInfo, db IDatabase) *AnswerInfo {
-	answer := NewAnswer()
-	answer.userId = msg.userId
+func (this *MessageType) IsCommand() bool {
+	return strings.HasPrefix(this.text, "/")
+}
+
+func GetAnswerOnMessage(msg *MessageType, db IDatabase) *Answer {
+	answer := NewUserAnswer(msg.userId)
 
 	if userId := db.GetUserId(msg.userName); userId == 0 {
 		db.AddUser(msg.userName, msg.userId)
@@ -95,32 +107,7 @@ func GetAnswerOnMessage(msg *MessageInfo, db IDatabase) *AnswerInfo {
 	return answer
 }
 
-func (this *MessageInfo) Validate() (errMessage string) {
-	if this.text == "" {
-		return "Получено пустое сообщение"
-	}
-
-	if this.IsCommand() {
-		isNownCommand := false
-		for _, command := range commands {
-			if this.text == command {
-				isNownCommand = true
-				break
-			}
-		}
-		if !isNownCommand {
-			return "Неизвестная команда"
-		}
-	}
-
-	return ""
-}
-
-func (this *MessageInfo) IsCommand() bool {
-	return strings.HasPrefix(this.text, "/")
-}
-
-func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db IDatabase) {
+func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 	user := this.userId
 	command := this.text
 
@@ -147,27 +134,4 @@ func (this *MessageInfo) ProcessComand(answer *AnswerInfo, db IDatabase) {
 	default:
 		answer.SetAnswer("Неизвестная команда")
 	}
-}
-
-func SendAnswer(answer *AnswerInfo, bot *tgApi.BotAPI) error {
-	if answer == nil {
-		return errors.New("Empty answer")
-	}
-	for _, text := range answer.text {
-		msg := tgApi.NewMessage(answer.userId, text)
-		msg.ReplyMarkup = answer.keyboard
-		_, err := bot.Send(msg)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (this *AnswerInfo) SetAnswer(text string) {
-	this.text = append(this.text, text)
-}
-
-func (this *AnswerInfo) SetAnswers(text []string) {
-	this.text = text
 }
