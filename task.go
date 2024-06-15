@@ -29,11 +29,6 @@ const (
 
 func MakeId(name string) string {
 	fmt.Println(name)
-	// md5Hash := sha1.Sum([]byte(name))
-	// result, err := uuid.FromBytes(md5Hash[:])
-	// if err != nil {
-	// 	log.WithError(err).Fatal("Fail to create task")
-	// }
 	h := sha1.New()
 	h.Write([]byte(name))
 	return hex.EncodeToString(h.Sum(nil))
@@ -57,6 +52,7 @@ func (this *TaskInfo) Done() {
 }
 func (this *TaskInfo) Cancelled() {
 	this.Status = Cancelled
+	this.FinishDate = time.Now()
 }
 func (this *TaskInfo) Backlog() {
 	this.Status = Backlog

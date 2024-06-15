@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 )
 
@@ -21,7 +20,7 @@ type MemoryStorage struct {
 type IDatabase interface {
 	GetAllUsers() []int64
 	GetUserId(userName string) int64
-	GetUserTasks(userId int64) []string
+	GetUserTasks(userId int64) []TaskInfo
 	GetTaskInfo(taskId string) TaskInfo
 	GetLine(userId int64) *LineType
 
@@ -32,15 +31,11 @@ type IDatabase interface {
 	AddUserTask(userId int64, taskId string)
 	AddNewTask(task TaskInfo)
 
+	ChangeTask(taskId string, task TaskInfo)
 	ChangeLine(userId int64, line LineType)
 
 	Save() error
-	GetDbState()
 }
-
-// func GetDatabase() Database {
-// 	return Database{}
-// }
 
 func (this *MemoryStorage) GetAllUsers() []int64 {
 	users := make([]int64, len(this.UserIds))
@@ -52,16 +47,19 @@ func (this *MemoryStorage) GetAllUsers() []int64 {
 func (this *MemoryStorage) GetUserId(id string) int64 {
 	return 0
 }
-func (this *MemoryStorage) GetUserTasks(userId int64) []string {
+func (this *MemoryStorage) GetUserTasks(userId int64) []TaskInfo {
 	taskIds := this.TaskList[userId]
-	tasks := make([]string, 0)
+	tasks := make([]TaskInfo, 0)
 	for _, taskId := range taskIds {
 		task := this.Tasks[taskId]
-		tasks = append(tasks, task.Name)
+		tasks = append(tasks, task)
 	}
 	return tasks
 }
 func (this *MemoryStorage) GetTaskInfo(taskId string) TaskInfo {
+	if _, ok := this.Tasks[taskId]; ok {
+		return this.Tasks[taskId]
+	}
 	return TaskInfo{}
 }
 func (this *MemoryStorage) GetLine(userId int64) *LineType {
@@ -103,6 +101,12 @@ func (this *MemoryStorage) AddNewTask(task TaskInfo) {
 	this.Tasks[task.Id] = task
 }
 
+func (this *MemoryStorage) ChangeTask(taskId string, task TaskInfo) {
+	if _, ok := this.Tasks[taskId]; ok {
+		this.Tasks[taskId] = task
+	}
+}
+
 func (this *MemoryStorage) ChangeLine(userId int64, line LineType) {
 	if this.Lines == nil {
 		this.Lines = make(map[int64]LineType)
@@ -120,11 +124,6 @@ func (this *MemoryStorage) Save() error {
 		return err
 	}
 	return os.WriteFile(this.path, data, 0644)
-}
-
-func (this *MemoryStorage) GetDbState() {
-	fmt.Println("DB state:")
-	fmt.Println(this)
 }
 
 func GetLocalDatabase(path string) (IDatabase, error) {

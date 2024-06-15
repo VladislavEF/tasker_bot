@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	tgApi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -50,7 +51,6 @@ func main() {
 		log.WithError(err).Fatal("Can't connect to local database")
 		os.Exit(1)
 	}
-	// db.GetDbState()
 
 	if err := SendStartMsg(bot, db); err != nil {
 		log.WithError(err).Error("Failed to send start message")
@@ -64,6 +64,8 @@ func main() {
 			callback, _err := ListenCallback(update)
 			err = _err
 			msg = callback.msg
+			fmt.Println(msg)
+			// fmt.Println(callback.data)
 		} else if update.Message != nil {
 			msg, err = ListenMessage(update)
 		} else {

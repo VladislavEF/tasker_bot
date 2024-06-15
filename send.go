@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	tgApi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -9,7 +10,7 @@ import (
 type Answer struct {
 	text     []string
 	userId   int64
-	keyboard *tgApi.InlineKeyboardMarkup
+	keyboard []tgApi.InlineKeyboardMarkup
 }
 
 func NewAnswer() *Answer {
@@ -24,18 +25,18 @@ func NewUserAnswer(userId int64) *Answer {
 
 func (this *Answer) Start() {
 	this.SetAnswer("Привет.\nЯ бот для заведения и хранения твоих задач. Приступим?")
-	this.keyboard = GetStartButtons()
+	this.SetButton(GetStartButtons())
 }
 
 func (this *Answer) NewTask(line *LineType, db IDatabase) {
 	if line == nil {
 		line = &LineType{
-			Command:  "/newTask",
-			Argument: "",
+			Command: "/newTask",
+			Text:    "",
 		}
 		this.SetAnswer("Что нужно сделать?")
 	} else {
-		task := NewTask(line.Argument)
+		task := NewTask(line.Text)
 		if !db.IsTask(task.Id) {
 			if task.Name == "" {
 				this.SetAnswer("Нет текста задачи")
@@ -51,14 +52,43 @@ func (this *Answer) NewTask(line *LineType, db IDatabase) {
 	db.ChangeLine(this.userId, *line)
 }
 
+func (this *Answer) DeleteTask(id string, db IDatabase) {
+	if db.IsTask(id) {
+		task := db.GetTaskInfo(id)
+		task.Cancelled()
+		fmt.Println(task)
+		db.ChangeTask(id, task)
+	}
+	this.SetAnswer("Удалена")
+}
+
+func (this *Answer) FinishTask(id string, db IDatabase) {
+	if db.IsTask(id) {
+		task := db.GetTaskInfo(id)
+		task.Done()
+		db.ChangeTask(id, task)
+		this.SetAnswer("Поздравляю!")
+	} else {
+		this.SetAnswer("Нет такой задачи")
+	}
+}
+
 func (this *Answer) MyTasks(db IDatabase) {
 	tasks := db.GetUserTasks(this.userId)
-	if len(tasks) == 0 {
-		this.SetAnswer("Нет текущих задач")
-	} else {
-		this.SetAnswers(tasks)
+	for _, task := range tasks {
+		if task.Name == "" || task.Status != Backlog {
+			continue
+		}
+		this.SetAnswer(task.Name)
+		this.SetButton(GetTaskButtons(task.Id))
 	}
-	this.keyboard = GetTaskButtons()
+	if len(this.text) == 0 {
+		this.SetAnswer("Нет текущих задач")
+	}
+}
+
+func (this *Answer) SetButton(button tgApi.InlineKeyboardMarkup) {
+	this.keyboard = append(this.keyboard, button)
 }
 
 func (this *Answer) SetAnswer(text string) {
@@ -90,9 +120,11 @@ func SendMessage(outMsg *Answer, bot *tgApi.BotAPI) error {
 	if outMsg == nil {
 		return errors.New("Empty answer")
 	}
-	for _, text := range outMsg.text {
+	for i, text := range outMsg.text {
 		msg := tgApi.NewMessage(outMsg.userId, text)
-		msg.ReplyMarkup = outMsg.keyboard
+		if len(outMsg.text) == len(outMsg.keyboard) {
+			msg.ReplyMarkup = outMsg.keyboard[i]
+		}
 		_, err := bot.Send(msg)
 		if err != nil {
 			return err

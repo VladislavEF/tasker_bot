@@ -20,11 +20,11 @@ type CallbackType struct {
 }
 
 type LineType struct {
-	Command  string
-	Argument string
+	Command string
+	Text    string
 }
 
-var commands = []string{"/start", "/tasks", "/myTasks", "/newTask", "/stats"}
+var functions = []string{"/start", "/tasks", "/myTasks", "/newTask", "/stats", "/finish", "/delete"}
 
 func ListenMessage(update tgApi.Update) (info *MessageType, err error) {
 	msg := update.Message
@@ -54,27 +54,6 @@ func ListenCallback(update tgApi.Update) (callback *CallbackType, err error) {
 	}
 
 	return callback, nil
-}
-
-func (this *MessageType) Validate() (errMessage string) {
-	if this.text == "" {
-		return "Получено пустое сообщение"
-	}
-
-	if this.IsCommand() {
-		isNownCommand := false
-		for _, command := range commands {
-			if this.text == command {
-				isNownCommand = true
-				break
-			}
-		}
-		if !isNownCommand {
-			return "Неизвестная команда"
-		}
-	}
-
-	return ""
 }
 
 func (this *MessageType) IsCommand() bool {
@@ -107,20 +86,50 @@ func GetAnswerOnMessage(msg *MessageType, db IDatabase) *Answer {
 	return answer
 }
 
+func (this *MessageType) Validate() (errMessage string) {
+	if this.text == "" {
+		return "Получено пустое сообщение"
+	}
+
+	if !this.IsCommand() {
+		return ""
+	}
+
+	isNownCommand := false
+	function := GetFunction(this.text)
+	for _, knownFunctions := range functions {
+		if function == knownFunctions {
+			isNownCommand = true
+			break
+		}
+	}
+	if !isNownCommand {
+		return "Неизвестная команда"
+	}
+	if function == "/delete" || function == "/finish" {
+		if GetArgument(this.text) == "" {
+			return "Операция с неизвестной задачей"
+		}
+	}
+
+	return ""
+}
+
 func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 	user := this.userId
-	command := this.text
+	function, argument := GetFunction(this.text), GetArgument(this.text)
 
 	line := db.GetLine(user)
-	if this.IsCommand() {
-		line = nil
-	}
-	if line != nil && db.IsOpenLine(user) {
-		command = line.Command
-		line.Argument = this.text
+	if db.IsOpenLine(user) {
+		if this.IsCommand() {
+			db.ChangeLine(user, *line)
+		} else {
+			function = line.Command
+			line.Text = this.text
+		}
 	}
 
-	switch command {
+	switch function {
 	case "/start":
 		answer.Start()
 	case "/tasks":
@@ -131,7 +140,23 @@ func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 		answer.NewTask(line, db)
 	case "/stats":
 		answer.SetAnswer("Раздел в разработке")
+	case "/finish":
+		answer.FinishTask(argument, db)
+	case "/delete":
+		answer.DeleteTask(argument, db)
 	default:
 		answer.SetAnswer("Неизвестная команда")
 	}
+}
+
+func GetFunction(command string) string {
+	return strings.Split(command, "@")[0]
+}
+
+func GetArgument(command string) string {
+	comm := strings.Split(command, "@")
+	if len(comm) > 1 {
+		return comm[1]
+	}
+	return ""
 }
