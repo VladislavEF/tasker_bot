@@ -126,18 +126,12 @@ func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 	function, argument := GetFunction(this.text), GetArgument(this.text)
 
 	line := db.GetLine(user)
-	if db.IsOpenLine(user) {
+	if IsOpenLine(line) {
 		if this.IsCommand() {
-			db.ChangeLine(user, *line)
+			db.ChangeLine(user, line)
 		} else {
 			function = line.Command
 			line.Text = this.text
-			if argument != "" {
-				userId, _ := strconv.Atoi(argument)
-				line.Executor = int64(userId)
-			} else {
-				line.Executor = user
-			}
 		}
 	}
 
@@ -149,7 +143,16 @@ func (this *MessageType) ProcessComand(answer *Answer, db IDatabase) {
 	case "/my_tasks":
 		answer.MyTasks(db)
 	case "/new_task":
-		answer.NewTask(line, db)
+		if !IsOpenLine(line) {
+			executor := user
+			if argument != "" {
+				userId, _ := strconv.Atoi(argument)
+				executor = int64(userId)
+			}
+			answer.NewLine(executor, db)
+		} else {
+			answer.NewTask(line, db)
+		}
 	case "/stats":
 		answer.SetAnswer("Раздел в разработке")
 	case "/finish":
@@ -174,4 +177,8 @@ func GetArgument(command string) string {
 		return comm[1]
 	}
 	return ""
+}
+
+func IsOpenLine(line *LineType) bool {
+	return line != nil && line.Command != ""
 }

@@ -29,29 +29,29 @@ func (this *Answer) Start() {
 	this.SetButton(GetStartButtons())
 }
 
-func (this *Answer) NewTask(line *LineType, db IDatabase) {
-	if line == nil {
-		line = &LineType{
-			Command:  "/new_task",
-			Text:     "",
-			Executor: this.userId,
-		}
-		this.SetAnswer("Что нужно сделать?")
-	} else {
-		task := NewTask(line.Text)
-		if !db.IsTask(task.Id) {
-			if task.Name == "" {
-				this.SetAnswer("Нет текста задачи")
-				return
-			}
-			db.AddNewTask(*task)
-			db.AddUserTask(line.Executor, task.Id)
-			this.SetAnswer("Задача добавлена")
-		} else {
-			this.SetAnswer("Задача уже заведена")
-		}
+func (this *Answer) NewLine(executor int64, db IDatabase) {
+	line := &LineType{
+		Executor: executor,
+		Command:  "/new_task",
 	}
-	db.ChangeLine(this.userId, *line)
+	this.SetAnswer("Что нужно сделать?")
+	db.ChangeLine(this.userId, line)
+}
+
+func (this *Answer) NewTask(line *LineType, db IDatabase) {
+	task := NewTask(line.Text)
+	if !db.IsTask(task.Id) {
+		if task.Name == "" {
+			this.SetAnswer("Нет текста задачи")
+			return
+		}
+		db.AddNewTask(*task)
+		db.AddUserTask(line.Executor, task.Id)
+		this.SetAnswer("Задача добавлена")
+	} else {
+		this.SetAnswer("Задача уже заведена")
+	}
+	db.ChangeLine(this.userId, line)
 }
 
 func (this *Answer) DeleteTask(id string, db IDatabase) {

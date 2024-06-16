@@ -51,12 +51,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := SendStartMsg(bot, db); err != nil {
-		log.WithError(err).Error("Failed to send start message")
-		os.Exit(1)
-	}
+	// if err := SendStartMsg(bot, db); err != nil {
+	// 	log.WithError(err).Error("Failed to send start message")
+	// 	os.Exit(1)
+	// }
 
-	go Notifyer(db,bot)
+	go Notifyer(db, bot)
 
 	for update := range bot.GetUpdatesChan(config) {
 		var msg *MessageType

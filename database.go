@@ -25,14 +25,13 @@ type IDatabase interface {
 	GetLine(userId int64) *LineType
 
 	IsTask(taskId string) bool
-	IsOpenLine(userId int64) bool
 
 	AddUser(userName string, userId int64)
 	AddUserTask(userId int64, taskId string)
 	AddNewTask(task TaskInfo)
 
 	ChangeTask(taskId string, task TaskInfo)
-	ChangeLine(userId int64, line LineType)
+	ChangeLine(userId int64, line *LineType)
 
 	Save() error
 }
@@ -62,18 +61,13 @@ func (this *MemoryStorage) GetLine(userId int64) *LineType {
 	if _, ok := this.Lines[userId]; ok {
 		line := this.Lines[userId]
 		return &line
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (this *MemoryStorage) IsTask(taskId string) bool {
 	_, ok := this.Tasks[taskId]
 	return ok
-}
-func (this *MemoryStorage) IsOpenLine(userId int64) bool {
-	line, ok := this.Lines[userId]
-	return ok && line.Command != ""
 }
 
 func (this *MemoryStorage) AddUser(userName string, userId int64) {
@@ -103,12 +97,15 @@ func (this *MemoryStorage) ChangeTask(taskId string, task TaskInfo) {
 	}
 }
 
-func (this *MemoryStorage) ChangeLine(userId int64, line LineType) {
+func (this *MemoryStorage) ChangeLine(userId int64, line *LineType) {
 	if this.Lines == nil {
 		this.Lines = make(map[int64]LineType)
 	}
+	if line == nil {
+		return
+	}
 	if _, ok := this.Lines[userId]; !ok {
-		this.Lines[userId] = line
+		this.Lines[userId] = *line
 	} else {
 		delete(this.Lines, userId)
 	}

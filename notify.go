@@ -9,13 +9,13 @@ func Notification(db IDatabase, bot *tgApi.BotAPI) {
 	for userId := range db.GetAllUsers() {
 		answer := NewUserAnswer(userId)
 		answer.MyTasks(db)
-		if len(answer.text) != 0{
+		if len(answer.text) != 0 {
 			SendMessage(answer, bot)
 		}
 	}
 }
 
-func Notifyer(db IDatabase, bot *tgApi.BotAPI) (err error){
+func Notifyer(db IDatabase, bot *tgApi.BotAPI) (err error) {
 	s := gocron.NewScheduler()
 	err = s.Every(1).Day().At("11:00:00").Do(Notification, db, bot)
 	err = s.Every(1).Day().At("19:00:00").Do(Notification, db, bot)
